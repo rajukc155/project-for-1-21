@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Pro Racer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="ui">
+        <div class="stat">RANK: <span id="rank">4</span>/4</div>
+        <div class="stat">SPEED: <span id="speed">0</span> km/h</div>
+    </div>
+
+    <div class="controls">
+        <button id="leftBtn" class="ctrl-btn">LEFT</button>
+        <button id="rightBtn" class="ctrl-btn">RIGHT</button>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+    
+    <script type="module" src="game.js"></script>
+</body>
+</html>
