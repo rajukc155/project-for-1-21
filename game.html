@@ -3,25 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Pro Racer</title>
-    <link rel="stylesheet" href="style.css">
+    <title>3D Racer - Fixed</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; }
+        #ui {
+            position: absolute; top: 20px; left: 20px; color: white;
+            background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 8px;
+            border: 2px solid #555; pointer-events: none; z-index: 10;
+        }
+        .controls {
+            position: absolute; bottom: 30px; width: 100%;
+            display: flex; justify-content: center; gap: 20px; z-index: 10;
+        }
+        button {
+            width: 80px; height: 80px; border-radius: 50%; border: 4px solid #fff;
+            background: rgba(255,255,255,0.2); color: white; font-size: 18px; 
+            cursor: pointer; font-weight: bold;
+        }
+        button:active { background: white; color: black; }
+    </style>
 </head>
 <body>
 
     <div id="ui">
-        <div class="stat">RANK: <span id="rank">4</span>/4</div>
-        <div class="stat">SPEED: <span id="speed">0</span> km/h</div>
+        POS: <span id="rank">4</span>/4 | DIST: <span id="dist">0</span>m
     </div>
 
     <div class="controls">
-        <button id="leftBtn" class="ctrl-btn">LEFT</button>
-        <button id="rightBtn" class="ctrl-btn">RIGHT</button>
+        <button id="leftBtn">LEFT</button>
+        <button id="rightBtn">RIGHT</button>
     </div>
 
-    <script type="importmap">
-        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+
+    <script>
+        // 1. SCENE SETUP
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb); // Sky
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 2. LIGHTING (Essential to see 3D objects)
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 10, 5);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x404040));
+
+        // 3. ROAD & GROUND
+        // Green Grass
+        const groundGeo = new THREE.PlaneGeometry(1000, 1000);
+        const groundMat = new THREE.MeshStandardMaterial({ color: 0x228b22 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        // Grey Road
+        const roadGeo = new THREE.PlaneGeometry(10, 1000);
+        const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const road = new THREE.Mesh(roadGeo, roadMat);
+        road.rotation.x = -Math.PI / 2;
+        road.position.y = 0.01; // Slightly above grass
+        scene.add(road);
+
+        // 4. CAR CREATION FUNCTION
+        function createCar(color, x, z) {
+            const carGroup = new THREE.Group();
+            
+            // Main body
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 0.5, 2),
+                new THREE.MeshStandardMaterial({ color: color })
+            );
+            carGroup.add(body);
+
+            // Roof
+            const roof = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, 0.4, 1),
+                new THREE.MeshStandardMaterial({ color: 0xffffff })
+            );
+            roof.position.y = 0.4;
+            carGroup.add(roof);
+
+            carGroup.position.set(x, 0.3, z);
+            scene.add(carGroup);
+            return carGroup;
+        }
+
+        const player = createCar(0xff0000, 0, 0); // Player Car
+        const enemies = [
+            { mesh: createCar(0x0000ff, -2, -30), speed: 0.15 },
+            { mesh: createCar(0xffff00, 2, -50), speed: 0.18 },
+            { mesh: createCar(0x00ff00, 0, -80), speed: 0.12 }
+        ];
+
+        // 5. INPUTS
+        let moveLeft = false;
+        let moveRight = false;
+
+        const lBtn = document.getElementById('leftBtn');
+        const rBtn = document.getElementById('rightBtn');
+
+        lBtn.onmousedown = lBtn.ontouchstart = () => moveLeft = true;
+        lBtn.onmouseup = lBtn.ontouchend = () => moveLeft = false;
+        rBtn.onmousedown = rBtn.ontouchstart = () => moveRight = true;
+        rBtn.onmouseup = rBtn.ontouchend = () => moveRight = false;
+
+        // 6. ANIMATION LOOP
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Forward Movement
+            player.position.z -= 0.2;
+
+            // Steering
+            if (moveLeft && player.position.x > -4) player.position.x -= 0.1;
+            if (moveRight && player.position.x < 4) player.position.x += 0.1;
+
+            // Enemies & Rank
+            let currentRank = 4;
+            enemies.forEach(e => {
+                e.mesh.position.z -= e.speed;
+                if (player.position.z < e.mesh.position.z) currentRank--;
+            });
+
+            // Camera follow
+            camera.position.set(player.position.x, 3, player.position.z + 6);
+            camera.lookAt(player.position.x, 0, player.position.z - 10);
+
+            // UI Update
+            document.getElementById('rank').innerText = currentRank;
+            document.getElementById('dist').innerText = Math.floor(Math.abs(player.position.z));
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
     </script>
-    
-    <script type="module" src="game.js"></script>
 </body>
 </html>
