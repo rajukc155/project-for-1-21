@@ -3,144 +3,171 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Racer - Fixed</title>
+    <title>3D Racer - Speed Controls</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; }
+        
+        /* Dashboard UI */
         #ui {
             position: absolute; top: 20px; left: 20px; color: white;
-            background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 8px;
-            border: 2px solid #555; pointer-events: none; z-index: 10;
+            background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px;
+            border: 2px solid #ff0000; z-index: 10; min-width: 150px;
         }
-        .controls {
+        .stat { font-size: 18px; margin-bottom: 5px; font-weight: bold; }
+        #speed-num { color: #00ff00; font-size: 24px; }
+
+        /* Control Layout */
+        .controls-container {
             position: absolute; bottom: 30px; width: 100%;
-            display: flex; justify-content: center; gap: 20px; z-index: 10;
+            display: flex; justify-content: space-around; align-items: center; z-index: 10;
         }
+        .group { display: flex; gap: 15px; }
+        
         button {
-            width: 80px; height: 80px; border-radius: 50%; border: 4px solid #fff;
-            background: rgba(255,255,255,0.2); color: white; font-size: 18px; 
-            cursor: pointer; font-weight: bold;
+            width: 70px; height: 70px; border-radius: 15px; border: 3px solid #fff;
+            color: white; font-size: 14px; cursor: pointer; font-weight: bold;
+            user-select: none; transition: transform 0.1s;
         }
-        button:active { background: white; color: black; }
+
+        /* Button Colors */
+        #leftBtn, #rightBtn { background: rgba(255,255,255,0.2); }
+        #goBtn { background: #228b22; border-color: #00ff00; width: 90px; height: 90px; }
+        #stopBtn { background: #b22222; border-color: #ff0000; width: 90px; height: 90px; }
+
+        button:active { transform: scale(0.9); opacity: 0.8; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        POS: <span id="rank">4</span>/4 | DIST: <span id="dist">0</span>m
+        <div class="stat">RANK: <span id="rank">4</span>/4</div>
+        <div class="stat">SPEED: <span id="speed-num">0</span> <small>km/h</small></div>
+        <div class="stat">DIST: <span id="dist">0</span>m</div>
     </div>
 
-    <div class="controls">
-        <button id="leftBtn">LEFT</button>
-        <button id="rightBtn">RIGHT</button>
+    <div class="controls-container">
+        <div class="group">
+            <button id="leftBtn">LEFT</button>
+            <button id="rightBtn">RIGHT</button>
+        </div>
+        <div class="group">
+            <button id="stopBtn">STOP</button>
+            <button id="goBtn">GO</button>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
 
     <script>
-        // 1. SCENE SETUP
+        // --- 1. SCENE & ENGINE ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87ceeb); // Sky
-        
+        scene.background = new THREE.Color(0x6ec0ff);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // 2. LIGHTING (Essential to see 3D objects)
-        const light = new THREE.DirectionalLight(0xffffff, 1);
+        // Lighting
+        const light = new THREE.DirectionalLight(0xffffff, 1.2);
         light.position.set(5, 10, 5);
         scene.add(light);
         scene.add(new THREE.AmbientLight(0x404040));
 
-        // 3. ROAD & GROUND
-        // Green Grass
-        const groundGeo = new THREE.PlaneGeometry(1000, 1000);
-        const groundMat = new THREE.MeshStandardMaterial({ color: 0x228b22 });
-        const ground = new THREE.Mesh(groundGeo, groundMat);
-        ground.rotation.x = -Math.PI / 2;
-        scene.add(ground);
-
-        // Grey Road
-        const roadGeo = new THREE.PlaneGeometry(10, 1000);
+        // --- 2. ENVIRONMENT ---
+        const roadGeo = new THREE.PlaneGeometry(12, 5000);
         const roadMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
         const road = new THREE.Mesh(roadGeo, roadMat);
         road.rotation.x = -Math.PI / 2;
-        road.position.y = 0.01; // Slightly above grass
         scene.add(road);
 
-        // 4. CAR CREATION FUNCTION
+        // Grass
+        const grassGeo = new THREE.PlaneGeometry(1000, 5000);
+        const grassMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27 });
+        const grass = new THREE.Mesh(grassGeo, grassMat);
+        grass.rotation.x = -Math.PI / 2;
+        grass.position.y = -0.1;
+        scene.add(grass);
+
+        // --- 3. CARS ---
         function createCar(color, x, z) {
-            const carGroup = new THREE.Group();
-            
-            // Main body
-            const body = new THREE.Mesh(
-                new THREE.BoxGeometry(1.2, 0.5, 2),
-                new THREE.MeshStandardMaterial({ color: color })
-            );
-            carGroup.add(body);
-
-            // Roof
-            const roof = new THREE.Mesh(
-                new THREE.BoxGeometry(0.8, 0.4, 1),
-                new THREE.MeshStandardMaterial({ color: 0xffffff })
-            );
-            roof.position.y = 0.4;
-            carGroup.add(roof);
-
-            carGroup.position.set(x, 0.3, z);
-            scene.add(carGroup);
-            return carGroup;
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.5, 2.2), new THREE.MeshStandardMaterial({ color }));
+            const roof = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.4, 1), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+            roof.position.y = 0.45;
+            group.add(body, roof);
+            group.position.set(x, 0.3, z);
+            scene.add(group);
+            return group;
         }
 
-        const player = createCar(0xff0000, 0, 0); // Player Car
+        const player = createCar(0xff0000, 0, 0);
         const enemies = [
-            { mesh: createCar(0x0000ff, -2, -30), speed: 0.50 },
-            { mesh: createCar(0xffff00, 2, -50), speed: 0.50},
-            { mesh: createCar(0x00ff00, 0, -80), speed: 0.50 }
+            { mesh: createCar(0x0000ff, -3, -40), speed: 0.2 },
+            { mesh: createCar(0xffff00, 3, -80), speed: 0.25 },
+            { mesh: createCar(0x00ff00, 0, -120), speed: 0.18 }
         ];
 
-        // 5. INPUTS
-        let moveLeft = false;
-        let moveRight = false;
+        // --- 4. GAME VARIABLES & INPUT ---
+        let currentSpeed = 0;
+        let targetSpeed = 0;
+        const maxSpeed = 1.2;
+        let playerXDir = 0;
 
-        const lBtn = document.getElementById('leftBtn');
-        const rBtn = document.getElementById('rightBtn');
+        // Input listeners
+        const inputs = { left: false, right: false, go: false, stop: false };
+        
+        const setupBtn = (id, key) => {
+            const btn = document.getElementById(id);
+            const start = (e) => { e.preventDefault(); inputs[key] = true; };
+            const end = (e) => { e.preventDefault(); inputs[key] = false; };
+            btn.onmousedown = btn.ontouchstart = start;
+            btn.onmouseup = btn.ontouchend = end;
+        };
 
-        lBtn.onmousedown = lBtn.ontouchstart = () => moveLeft = true;
-        lBtn.onmouseup = lBtn.ontouchend = () => moveLeft = false;
-        rBtn.onmousedown = rBtn.ontouchstart = () => moveRight = true;
-        rBtn.onmouseup = rBtn.ontouchend = () => moveRight = false;
+        setupBtn('leftBtn', 'left');
+        setupBtn('rightBtn', 'right');
+        setupBtn('goBtn', 'go');
+        setupBtn('stopBtn', 'stop');
 
-        // 6. ANIMATION LOOP
+        // --- 5. GAME LOOP ---
         function animate() {
             requestAnimationFrame(animate);
 
-            // Forward Movement
-            player.position.z -= 0.2;
+            // Acceleration Logic
+            if (inputs.go) {
+                currentSpeed = Math.min(currentSpeed + 0.01, maxSpeed);
+            } else if (inputs.stop) {
+                currentSpeed = Math.max(currentSpeed - 0.03, 0);
+            } else {
+                currentSpeed = Math.max(currentSpeed - 0.005, 0); // Natural friction
+            }
 
-            // Steering
-            if (moveLeft && player.position.x > -4) player.position.x -= 0.1;
-            if (moveRight && player.position.x < 4) player.position.x += 0.1;
+            // Player Forward Movement
+            player.position.z -= currentSpeed;
 
-            // Enemies & Rank
-            let currentRank = 4;
+            // Steering Logic
+            if (inputs.left && player.position.x > -5) player.position.x -= 0.15 * (currentSpeed * 2);
+            if (inputs.right && player.position.x < 5) player.position.x += 0.15 * (currentSpeed * 2);
+
+            // Enemy Movement & Rank
+            let rank = 4;
             enemies.forEach(e => {
                 e.mesh.position.z -= e.speed;
-                if (player.position.z < e.mesh.position.z) currentRank--;
+                if (player.position.z < e.mesh.position.z) rank--;
             });
 
-            // Camera follow
-            camera.position.set(player.position.x, 3, player.position.z + 6);
-            camera.lookAt(player.position.x, 0, player.position.z - 10);
+            // Camera follow (Dynamic)
+            camera.position.set(player.position.x * 0.5, 3 + (currentSpeed), player.position.z + 6);
+            camera.lookAt(player.position.x, 0, player.position.z - 15);
 
-            // UI Update
-            document.getElementById('rank').innerText = currentRank;
+            // Update UI
+            document.getElementById('speed-num').innerText = Math.floor(currentSpeed * 200);
+            document.getElementById('rank').innerText = rank;
             document.getElementById('dist').innerText = Math.floor(Math.abs(player.position.z));
 
             renderer.render(scene, camera);
         }
 
-        // Handle Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
