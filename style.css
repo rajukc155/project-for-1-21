@@ -56,11 +56,19 @@ ruby {
     ruby-position: over;
     text-align: center;
 }
+
+/* Default small furigana */
 ruby rt {
     font-size: 0.65em;
     line-height: 1;
     color: #fff;
     display: block;
+}
+
+/* Slightly larger/more readable furigana inside the HUD */
+#ui ruby rt {
+    font-size: 0.78em;
+    color: #fff;
 }
 
 /* Make sure ruby doesn't break layout on small screens */
