@@ -50,3 +50,20 @@ body {
     transform: scale(0.9);
     background: rgba(255, 255, 255, 0.4);
 }
+
+/* Ruby (ふりがな) styling for kanji annotations */
+ruby {
+    ruby-position: over;
+    text-align: center;
+}
+ruby rt {
+    font-size: 0.65em;
+    line-height: 1;
+    color: #fff;
+    display: block;
+}
+
+/* Make sure ruby doesn't break layout on small screens */
+@media (max-width: 480px) {
+    ruby rt { font-size: 0.8em; }
+}

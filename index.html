@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Pro Fleet Racer</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { margin: 0; overflow: hidden; background: #111; font-family: 'Segoe UI', sans-serif; }
+        
+        #ui {
+            position: absolute; top: 20px; left: 20px; color: white;
+            background: rgba(0,0,0,0.8); padding: 15px; border-radius: 10px;
+            border-left: 5px solid #ff0000; z-index: 10;
+        }
+
+        .controls-container {
+            position: absolute; bottom: 30px; width: 100%;
+            display: flex; justify-content: space-around; z-index: 10;
+        }
+        
+        button {
+            width: 70px; height: 70px; border-radius: 12px; border: 2px solid #fff;
+            color: white; font-weight: bold; cursor: pointer; background: rgba(255,255,255,0.1);
+        }
+
+        #goBtn { background: #228b22; }
+        #stopBtn { background: #b22222; }
+        
+        .hint { position: absolute; bottom: 110px; width: 100%; text-align: center; color: #aaa; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div style="font-size: 24px;">POS: <span id="rank">7</span> / 7</div>
+        <div style="color: #00ff00;">SPEED: <span id="speed-num">0</span> km/h</div>
+    </div>
+
+    <div class="hint">Use Arrow Keys or Buttons</div>
+
+    <div class="controls-container">
+        <div>
+            <button id="leftBtn">LEFT</button>
+            <button id="rightBtn">RIGHT</button>
+        </div>
+        <div>
+            <button id="stopBtn">STOP</button>
+            <button id="goBtn">GO</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lights
+        const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+        sun.position.set(10, 20, 10);
+        scene.add(sun);
+        scene.add(new THREE.AmbientLight(0x606060));
+
+        // Road and Grass
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(15, 10000), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+        road.rotation.x = -Math.PI / 2;
+        scene.add(road);
+
+        const grass = new THREE.Mesh(new THREE.PlaneGeometry(2000, 10000), new THREE.MeshStandardMaterial({ color: 0x348C31 }));
+        grass.rotation.x = -Math.PI / 2;
+        grass.position.y = -0.1;
+        scene.add(grass);
+
+        // Car Creator
+        function createCar(color, x, z) {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.5, 2.4), new THREE.MeshStandardMaterial({ color }));
+            const roof = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.4, 1.2), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+            roof.position.y = 0.45;
+            group.add(body, roof);
+            group.position.set(x, 0.3, z);
+            scene.add(group);
+            return group;
+        }
+
+        // The Fleet
+        const player = createCar(0xff0000, 0, 0);
+        const enemies = [
+            { mesh: createCar(0x0000ff, -4, -5), speed: 0.22 },
+            { mesh: createCar(0xffff00, 4, -5), speed: 0.25 },
+            { mesh: createCar(0x00ff00, -2, -15), speed: 0.20 },
+            { mesh: createCar(0xff00ff, 2, -15), speed: 0.28 },
+            { mesh: createCar(0xffa500, -3, -25), speed: 0.24 },
+            { mesh: createCar(0xffffff, 3, -25), speed: 0.26 }
+        ];
+
+        // Controls Logic
+        const keys = { left: false, right: false, go: false, stop: false };
+        let currentSpeed = 0;
+
+        // Keyboard Events
+        window.addEventListener('keydown', (e) => {
+            if (e.key === "ArrowLeft" || e.key === "a") keys.left = true;
+            if (e.key === "ArrowRight" || e.key === "d") keys.right = true;
+            if (e.key === "ArrowUp" || e.key === "w") keys.go = true;
+            if (e.key === "ArrowDown" || e.key === "s") keys.stop = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.key === "ArrowLeft" || e.key === "a") keys.left = false;
+            if (e.key === "ArrowRight" || e.key === "d") keys.right = false;
+            if (e.key === "ArrowUp" || e.key === "w") keys.go = false;
+            if (e.key === "ArrowDown" || e.key === "s") keys.stop = false;
+        });
+
+        // Button Events
+        const bindBtn = (id, key) => {
+            const btn = document.getElementById(id);
+            btn.onmousedown = btn.ontouchstart = () => keys[key] = true;
+            btn.onmouseup = btn.ontouchend = () => keys[key] = false;
+        };
+        bindBtn('leftBtn', 'left'); bindBtn('rightBtn', 'right');
+        bindBtn('goBtn', 'go'); bindBtn('stopBtn', 'stop');
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Physics
+            if (keys.go) currentSpeed = Math.min(currentSpeed + 0.008, 1.5);
+            else if (keys.stop) currentSpeed = Math.max(currentSpeed - 0.04, 0);
+            else currentSpeed = Math.max(currentSpeed - 0.005, 0);
+
+            player.position.z -= currentSpeed;
+            if (keys.left && player.position.x > -6) player.position.x -= 0.1 * (currentSpeed + 0.2);
+            if (keys.right && player.position.x < 6) player.position.x += 0.1 * (currentSpeed + 0.2);
+
+
+
+            let rank = 10;
+            enemies.forEach(e => {
+                e.mesh.position.z -= e.speed;
+                if (player.position.z < e.mesh.position.z) rank--;
+            });
+
+            // Camera
+            camera.position.set(player.position.x * 0.5, 3.5, player.position.z + 8);
+            camera.lookAt(player.position.x, 0, player.position.z - 15);
+
+            // UI
+            document.getElementById('speed-num').innerText = Math.floor(currentSpeed * 180);
+            document.getElementById('rank').innerText = rank;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+        window.onresize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+    </script>
+</body>
+</html>
